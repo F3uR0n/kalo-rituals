@@ -3,6 +3,7 @@ from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import GLUT_BITMAP_HELVETICA_18
+import random
 
 camera_pos = (0,350,300)
 angle = 3.1416 / 2
@@ -16,6 +17,20 @@ gameOver = False
 firstPersonMode = True
 arenaScale = 2
 currentFloor = 1
+isLookBack = False
+lookBackAngleOffset = 0
+cheatMode = False
+gunX = 0
+gunY = 0
+gunSpawned = False
+hasGun = False
+canPickGun = False
+bulletAvailable = False
+bulletX = 0
+bulletY = 0
+bulletAngle = 0
+bulletActive = False
+bulletSpeed = 15
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(1,1,1)
@@ -42,7 +57,6 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
-
 def drawPlayer():
     
     glPushMatrix()
@@ -51,48 +65,135 @@ def drawPlayer():
 
     # Head
     glColor3f(0, 0, 0)
-    glTranslatef(0, 0, 117) 
+    glPushMatrix()
+    glTranslatef(0, 0, 117)
     gluSphere(gluNewQuadric(), 20, 20, 20)
-    glTranslatef(0, 0, -117) 
+    glPopMatrix()
 
     # Body
     glColor3f(0.3, 0.25, 0.21)
-    glTranslatef(0, 0, 40)  
+    glPushMatrix()
+    glTranslatef(0, 0, 40)
     glutSolidCube(40)
-    glTranslatef(0, 0, -40)  
-    glTranslatef(0, 0, 80) 
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(0, 0, 80)
     glutSolidCube(40)
-    glTranslatef(0, 0, -80)
+    glPopMatrix()
 
     # Arms
     glColor3f(0.8, 0.67, 0.6)
+
+    # Right arm
+    glPushMatrix()
     glTranslatef(20, 15, 90)
     glRotatef(90, 0, 1, 0)
-    gluCylinder(gluNewQuadric(), 10, 5, 40, 30, 30)
-    glTranslatef(-20, -15, -90)
-    glTranslatef(20, -15, 90)
-    gluCylinder(gluNewQuadric(), 10, 5, 40, 30, 30)
-    glTranslatef(-20, 15, -90)
+    gluCylinder(gluNewQuadric(), 10, 5, 20, 30, 30)
+    glPopMatrix()
 
-    # Gun
-    glColor3f(0.78, 0.78, 0.78)
-    glTranslatef(20, 0, 90)
-    gluCylinder(gluNewQuadric(), 10, 2, 55, 30, 30)
-    glRotatef(-90, 0, 1, 0)
-    glTranslatef(-20, 0, -90)
+    # Left arm
+    glPushMatrix()
+    glTranslatef(20, -15, 90)
+    glRotatef(90, 0, 1, 0)
+    gluCylinder(gluNewQuadric(), 10, 5, 20, 30, 30)
+    glPopMatrix()
+
+    if hasGun:
+        glPushMatrix()
+        glTranslatef(25, 0, 90)
+        glTranslatef(0, 0, -10)
+
+        drawGunModel()
+        glPopMatrix()
 
     # Legs
     glColor3f(0.6, 0.53, 0.47)
+    glPushMatrix()
     glTranslatef(0, 15, 0)
     gluCylinder(gluNewQuadric(), 10, 10, 50, 30, 30)
-    glTranslatef(0, -15, 0)
+    glPopMatrix()
+
+    glPushMatrix()
     glTranslatef(0, -15, 0)
     gluCylinder(gluNewQuadric(), 10, 10, 50, 30, 30)
-    glTranslatef(0, 15, 0)
+    glPopMatrix()
+
+    glPopMatrix()
+
+def spawnGun():
+    global gunX, gunY, gunSpawned
+
+    rooms = [
+        (-320*arenaScale, 280*arenaScale),   # top-left room
+        (0, 280*arenaScale),                 # top-middle
+        (320*arenaScale, 280*arenaScale),    # top-right
+        (-320*arenaScale, -300*arenaScale),  # bottom-left
+        (0, -300*arenaScale),                # bottom-middle
+        (320*arenaScale, -300*arenaScale)    # bottom-right
+    ]
+    gunX, gunY = random.choice(rooms)
+    gunSpawned = True
+
+def drawGunModel():
+    glColor3f(0.1, 0.1, 0.1)
+
+    # body
+    glPushMatrix()
+    glScalef(30, 10, 8)
+    glutSolidCube(1)
+    glPopMatrix()
+
+    # barrel
+    glPushMatrix()
+    glTranslatef(15, 0, 0)
+    glRotatef(90, 0, 1, 0)
+    gluCylinder(gluNewQuadric(), 3, 3, 25, 10, 10)
+    glPopMatrix()
+
+    # handle
+    glPushMatrix()
+    glTranslatef(-5, -5, -10)
+    glRotatef(-20, 1, 0, 0)
+    glScalef(8, 5, 20)
+    glutSolidCube(1)
+    glPopMatrix()
+
+def drawGun():
+    if not gunSpawned:
+        return
+
+    glPushMatrix()
+    glTranslatef(gunX, gunY, 20)
+    glRotatef(90, 0, 0, 1)
+    drawGunModel()
+    glPopMatrix()
+
+def checkGunPickup():
+    global hasGun, bulletAvailable, gunSpawned, canPickGun
+
+    if not gunSpawned:
+        canPickGun = False
+        return
+
+    dist = ((playerX - gunX)**2 + (playerY - gunY)**2) ** 0.5
+    if dist < 60:   # pickup radius
+        canPickGun = True
+    else:
+        canPickGun = False
+
+def drawBullet():
+    if not bulletActive:
+        return
+
+    glPushMatrix()
+    glColor3f(1, 0, 0)
+    glTranslatef(bulletX, bulletY, 80)
+    glutSolidCube(8)
     glPopMatrix()
 
 def keyboardListener(key, x, y):
-    global playerX, playerY, playerAngle, gameOver, firstPersonMode, currentFloor
+    global playerX, playerY, playerAngle, gameOver, firstPersonMode, currentFloor, isLookBack, lookBackTimer, canPickGun, hasGun, bulletAvailable, gunSpawned
 
     if not gameOver:
         if key == b'w':
@@ -126,7 +227,16 @@ def keyboardListener(key, x, y):
             playerAngle += 10
         if key == b'd':
             playerAngle -= 10
-
+        if key == b' ':
+            isLookBack = not isLookBack
+        
+        if key == b'e':
+            if canPickGun and gunSpawned:
+                hasGun = True
+                bulletAvailable = True
+                gunSpawned = False
+        
+        # Teleporting Pad
         if currentFloor == 1:
             if (350*arenaScale < playerX < 470*arenaScale and
                 -500*arenaScale < playerY < -350*arenaScale):
@@ -170,11 +280,24 @@ def specialKeyListener(key, x, y):
 
     camera_pos = (x, y, z)
 
-
-
 def mouseListener(button, state, x, y):
-    global firstPersonMode
+    global firstPersonMode, hasGun, bulletAvailable, bulletX, bulletY, bulletAngle, bulletActive
 
+    if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
+        if hasGun and bulletAvailable:
+            angleRad = radians(playerAngle)
+
+            # spawn bullet from player front
+            bulletX = playerX + 30 * cos(angleRad)
+            bulletY = playerY + 30 * sin(angleRad)
+            bulletAngle = playerAngle
+            bulletActive = True
+            bulletAvailable = False
+            hasGun = False
+            print("Bullet Fired!")
+
+            # later: check ghost hit here
+    
     if button == GLUT_RIGHT_BUTTON and state == GLUT_DOWN:
         firstPersonMode = not firstPersonMode
 
@@ -186,9 +309,19 @@ def setupCamera():
     glLoadIdentity()
 
     if firstPersonMode:        
-        gluLookAt(  playerX + 20 * cos(radians(playerAngle)), playerY + 20* sin(radians(playerAngle)), 120,
-                    playerX + 100* cos(radians(playerAngle)), playerY + 100* sin(radians(playerAngle)), 120,
-                    0, 0, 1)
+        finalAngle = playerAngle + lookBackAngleOffset
+
+        gluLookAt(
+            playerX + 20 * cos(radians(finalAngle)),
+            playerY + 20 * sin(radians(finalAngle)),
+            120,
+
+            playerX + 100 * cos(radians(finalAngle)),
+            playerY + 100 * sin(radians(finalAngle)),
+            120,
+
+            0, 0, 1
+        )
     else:
         camX = playerX - 120 * cos(radians(playerAngle))
         camY = playerY - 120 * sin(radians(playerAngle))
@@ -200,6 +333,31 @@ def setupCamera():
         )
 
 def idle():
+    global lookBackAngleOffset, isLookBack, bulletX, bulletY, bulletAngle, bulletActive
+    if not gameOver:
+        turnSpeed = 0.5
+        returnSpeed = 1
+
+        if isLookBack:
+            if lookBackAngleOffset < 180:
+                lookBackAngleOffset += turnSpeed
+        else:
+            if lookBackAngleOffset > 0:
+                lookBackAngleOffset -= returnSpeed
+
+        if lookBackAngleOffset < 0:
+            lookBackAngleOffset = 0
+        if lookBackAngleOffset > 180:
+            lookBackAngleOffset = 180
+
+        if bulletActive:
+            bulletX += bulletSpeed * cos(radians(bulletAngle))
+            bulletY += bulletSpeed * sin(radians(bulletAngle))
+
+        # remove if out of map
+        if bulletX < -490*arenaScale or bulletX > 490*arenaScale or bulletY < -560*arenaScale or bulletY > 420*arenaScale:
+            bulletActive = False
+
     glutPostRedisplay()
 
 def drawWall(x1, y1, x2, y2, height=300, thickness=20):
@@ -437,14 +595,17 @@ def drawCorridorWithDoors():
     y_top = 140 * arenaScale
     y_bottom = -140 * arenaScale
 
-    # walls (leave space for doors)
-    drawWall(-490*arenaScale, y_top, -300*arenaScale, y_top)
-    drawWall(-100*arenaScale, y_top, 100*arenaScale, y_top)
-    drawWall(300*arenaScale, y_top, 490*arenaScale, y_top)
+    # LEFT wall
+    drawWall(-490*arenaScale, y_top, -240*arenaScale, y_top)
+    drawWall(-490*arenaScale, y_bottom, -240*arenaScale, y_bottom)
 
-    drawWall(-490*arenaScale, y_bottom, -300*arenaScale, y_bottom)
-    drawWall(-100*arenaScale, y_bottom, 100*arenaScale, y_bottom)
-    drawWall(300*arenaScale, y_bottom, 490*arenaScale, y_bottom)
+    # MIDDLE wall
+    drawWall(-120*arenaScale, y_top, 120*arenaScale, y_top)
+    drawWall(-120*arenaScale, y_bottom, 120*arenaScale, y_bottom)
+
+    # RIGHT wall
+    drawWall(240*arenaScale, y_top, 490*arenaScale, y_top)
+    drawWall(240*arenaScale, y_bottom, 490*arenaScale, y_bottom)
 
 def drawSafeRoomFloor():
     glColor3f(0.3, 0.8, 0.6)
@@ -544,14 +705,15 @@ def drawSecondFloor():
     glEnd()
 
     # corridor walls (WITH DOORS)
-    drawWall(-490*arenaScale, 140*arenaScale, -300*arenaScale, 140*arenaScale)
-    drawWall(-100*arenaScale, 140*arenaScale, 100*arenaScale, 140*arenaScale)
-    drawWall(300*arenaScale, 140*arenaScale, 490*arenaScale, 140*arenaScale)
+    # TOP corridor
+    drawWall(-490*arenaScale, 140*arenaScale, -240*arenaScale, 140*arenaScale)
+    drawWall(-120*arenaScale, 140*arenaScale, 120*arenaScale, 140*arenaScale)
+    drawWall(240*arenaScale, 140*arenaScale, 490*arenaScale, 140*arenaScale)
 
-    drawWall(-490*arenaScale, -140*arenaScale, -300*arenaScale, -140*arenaScale)
-    drawWall(-100*arenaScale, -140*arenaScale, 100*arenaScale, -140*arenaScale)
-    drawWall(300*arenaScale, -140*arenaScale, 490*arenaScale, -140*arenaScale)
-
+    # BOTTOM corridor
+    drawWall(-490*arenaScale, -140*arenaScale, -240*arenaScale, -140*arenaScale)
+    drawWall(-120*arenaScale, -140*arenaScale, 120*arenaScale, -140*arenaScale)
+    drawWall(240*arenaScale, -140*arenaScale, 490*arenaScale, -140*arenaScale)
     # ===== TOP ROOMS =====
 
     # left room
@@ -594,7 +756,6 @@ def drawBox(x, y, z, size, r, g, b):
     glutSolidCube(size)
     glPopMatrix()
 
-#Sahin Written Code:                                     
 def drawAllRoomBoxes():
     if currentFloor==1:
         #1A
@@ -733,6 +894,7 @@ ropePicked=False
 dollPicked=False
 redPicked=False
 woodPicked=False
+
 def correctBoxDetection():
     global health,candlePicked,lemonPicked,lighterPicked,woodPicked,redPicked,ropePicked,dollPicked
     if currentFloor == 1:
@@ -858,6 +1020,7 @@ def correctBoxDetection():
             draw_text(300,770,f"You have Chosen a Wrong Answer your Helath will be decreased")
 
 collectionPrinted = False
+
 def storeCollection():
     global collectionPrinted
 
@@ -886,6 +1049,7 @@ def storeCollection():
 
 ritualItem = ["Candle","Lemon","Lighter","Doll","Rope","Wood","Red Powder"]
 ritualFlag = False
+
 def checkRitualStart():
     global ritualItem, ritualFlag
 
@@ -902,7 +1066,6 @@ def checkRitualStart():
             break
 
     print(ritualFlag)    
-
 
 def showScreen():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -922,6 +1085,8 @@ def showScreen():
         drawBottomRooms()
         drawTeleportPad()
         drawCeiling()
+        checkGunPickup()
+        drawGun()
 
     elif currentFloor == 2:
         drawSecondFloor()
@@ -930,8 +1095,13 @@ def showScreen():
 
     drawAllRoomBoxes()
     drawPlayer()
+    drawBullet()
     clue()
     correctBoxDetection()
+
+    if canPickGun and not hasGun:
+        draw_text(10, 600, "Press E to pick gun But But But you have only 1 bullet, use it wisely!")
+
     glutSwapBuffers()
 
 def main():
@@ -941,6 +1111,10 @@ def main():
     glutInitWindowPosition(50,50)
     wind = glutCreateWindow(b"3D OpenGL Intro")
 
+
+    spawnGun()
+
+    
     glutDisplayFunc(showScreen)
     glutKeyboardFunc(keyboardListener)
     glutSpecialFunc(specialKeyListener)
