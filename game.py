@@ -24,6 +24,7 @@ isLookBack = False
 lookBackAngleOffset = 0
 
 gameOver = False
+gameWon = False
 cheatMode = False
 
 gunX = 0
@@ -40,8 +41,12 @@ bulletActive = False
 bulletSpeed = 15
 
 hudDepth = 0.0
-windowWidth = 1400
-windowHeight = 1000
+
+SCREEN_W = 1600
+SCREEN_H = 850
+
+windowWidth = SCREEN_W
+windowHeight = SCREEN_H
 
 reverse = True
 reverseStartTime = 0
@@ -55,6 +60,21 @@ regenCount = 3
 playerInvisible = False
 invisibleStartTime = 0
 invisibleDuration = 10
+
+ritualPlaced = {
+    "Candle": False,
+    "Lemon": False,
+    "Lighter": False,
+    "Rope": False,
+    "Doll": False,
+    "Wood": False,
+    "Red Powder": False
+}
+
+ritualMessage = ""
+ritualMessageStart = 0
+ritualMessageDuration = 2
+
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(1,1,1)
@@ -71,7 +91,7 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glLoadIdentity()
     
     # Draw text at (x, y) in screen coordinates
-    glRasterPos2f(x, y)
+    glRasterPos2f(x, y-40)
     for ch in text:
         glutBitmapCharacter(font, ord(ch))
     
@@ -82,7 +102,7 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glMatrixMode(GL_MODELVIEW)
 
 def beginHUD():
-    global hudDepth, windowWidth, windowHeight
+    global hudDepth, SCREEN_W, SCREEN_H
 
     hudDepth = 0.0
 
@@ -90,8 +110,8 @@ def beginHUD():
     glPushMatrix()
     glLoadIdentity()
 
-    # HUD now uses the real current window size
-    gluOrtho2D(0, windowWidth, 0, windowHeight)
+    # strict f1.py style fixed HUD size
+    gluOrtho2D(0, SCREEN_W, 0, SCREEN_H)
 
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
@@ -179,28 +199,28 @@ def drawItemIcon(x, y, item):
         drawHUDRect(x + 15, y + 18, 25, 25, 0.15, 0.15, 0.15)
 
 def drawHealthHUD():
-    global health, maxHealth, windowWidth, windowHeight
+    global health, maxHealth
 
-    panel_w = 380
-    panel_h = 88
+    panel_w = 360
+    panel_h = 76
 
-    # upper center of actual viewport
-    x = (windowWidth - panel_w) / 2
-    y = windowHeight - 130
+    # upper middle of the visible viewport
+    x = (SCREEN_W - panel_w) / 2
+    y = SCREEN_H - 160
 
-    block_w = 26
-    block_h = 30
-    gap = 6
+    block_w = 24
+    block_h = 26
+    gap = 5
     total_blocks = 10
 
     # dark ash background
     drawHUDRect(x, y, panel_w, panel_h, 0.16, 0.16, 0.16)
 
     # darker inner strip
-    drawHUDRect(x + 18, y + 18, panel_w - 36, 44, 0.06, 0.06, 0.06)
+    drawHUDRect(x + 18, y + 18, panel_w - 36, 38, 0.05, 0.05, 0.05)
 
     glColor3f(1, 1, 1)
-    drawHUDText(x + 128, y + 64, "PLAYER LIFE")
+    drawHUDText(x + 125, y + 54, "PLAYER LIFE")
 
     if health > 60:
         hr, hg, hb = 0.0, 1.0, 0.15
@@ -220,32 +240,32 @@ def drawHealthHUD():
     if filled_blocks > total_blocks:
         filled_blocks = total_blocks
 
-    start_x = x + 38
-    block_y = y + 25
+    start_x = x + 42
+    block_y = y + 24
 
     for i in range(total_blocks):
         bx = start_x + i * (block_w + gap)
 
-        # empty block
         drawHUDRect(bx, block_y, block_w, block_h, 0.22, 0.22, 0.22)
 
-        # filled health block
         if i < filled_blocks:
             drawHUDRect(bx + 3, block_y + 3, block_w - 6, block_h - 6, hr, hg, hb)
 
         drawHUDBorder(bx, block_y, block_w, block_h, 0.75, 0.75, 0.75)
 
     glColor3f(1, 1, 1)
-    drawHUDText(x + 160, y + 4, str(health) + "/" + str(maxHealth))
+    drawHUDText(x + 150, y + 5, str(int(health)) + "/" + str(maxHealth))
+
+
 
 def drawInventoryHUD():
-    global collection, hud_items, selectedSlot, windowWidth
+    global collection, hud_items, selectedSlot
 
     slot = 72
     gap = 8
     total_width = len(hud_items) * slot + (len(hud_items) - 1) * gap
 
-    start_x = (windowWidth - total_width) / 2
+    start_x = (SCREEN_W - total_width) / 2
     y = 55
 
     glColor3f(1, 1, 1)
@@ -253,26 +273,20 @@ def drawInventoryHUD():
 
     for i in range(len(hud_items)):
         item = hud_items[i]
-
         x = start_x + i * (slot + gap)
 
-        # slot background
         drawHUDRect(x, y, slot, slot, 0.08, 0.08, 0.08)
 
-        # selected slot border
         if i == selectedSlot:
             drawHUDBorder(x, y, slot, slot, 1.0, 0.85, 0.2)
         else:
             drawHUDBorder(x, y, slot, slot, 0.45, 0.45, 0.45)
 
-        # if collected, draw icon
         if item in collection:
             drawItemIcon(x + 8, y + 5, item)
         else:
-            # empty slot shadow
             drawHUDRect(x + 18, y + 20, 34, 28, 0.02, 0.02, 0.02)
 
-        # short item label
         glColor3f(1, 1, 1)
 
         if item == "Red Powder":
@@ -282,13 +296,46 @@ def drawInventoryHUD():
 
         drawHUDText(x + 10, y - 18, label)
 
+def drawEndGameBanner():
+    banner_w = 760
+    banner_h = 190
+
+    x = (SCREEN_W - banner_w) / 2
+    y = (SCREEN_H - banner_h) / 2
+
+    # black banner background
+    drawHUDRect(x, y, banner_w, banner_h, 0.0, 0.0, 0.0)
+
+    if gameWon:
+        drawHUDBorder(x, y, banner_w, banner_h, 0.0, 0.8, 0.2)
+
+        # Clear only depth before text so text appears above banner
+        glClear(GL_DEPTH_BUFFER_BIT)
+
+        glColor3f(1, 1, 1)
+        drawHUDText(x + 240, y + 115, "CONGRATULATIONS YOU WON")
+        drawHUDText(x + 285, y + 80, "All ritual artifacts placed.")
+        drawHUDText(x + 300, y + 50, "Press R to restart.")
+
+    elif gameOver:
+        drawHUDBorder(x, y, banner_w, banner_h, 0.9, 0.0, 0.0)
+
+        # Clear only depth before text so text appears above banner
+        glClear(GL_DEPTH_BUFFER_BIT)
+
+        glColor3f(1, 1, 1)
+        drawHUDText(x + 335, y + 115, "GAME OVER")
+        drawHUDText(x + 285, y + 80, "Your life has finished.")
+        drawHUDText(x + 305, y + 50, "Press R to restart.")
+
+
 def drawStatusHUD():
-    global currentFloor, firstPersonMode, windowWidth, windowHeight
+    global currentFloor, firstPersonMode
 
     glColor3f(1, 1, 1)
 
-    x = windowWidth - 270
-    y = windowHeight - 45
+    x = SCREEN_W - 420
+    y = SCREEN_H - 50
 
     drawHUDText(x, y, "FLOOR: " + str(currentFloor))
 
@@ -305,6 +352,9 @@ def drawPlayerHUD():
     drawHealthHUD()
     drawInventoryHUD()
     drawStatusHUD()
+
+    if gameOver or gameWon:
+        drawEndGameBanner()
 
     endHUD()
 
@@ -463,27 +513,148 @@ def movePlayer(step):
         elif not isBlocked(playerX, playerCurrentY):
             playerY = playerCurrentY
 
+
+def setRitualMessage(msg):
+    global ritualMessage, ritualMessageStart
+
+    ritualMessage = msg
+    ritualMessageStart = time.time()
+
+
+def drawRitualMessage():
+    global ritualMessage, ritualMessageStart
+
+    if ritualMessage != "":
+        if time.time() - ritualMessageStart < ritualMessageDuration:
+            draw_text(300, 735, ritualMessage)
+
+
+def getSecondFloorRitualRoom():
+    global currentFloor, playerX, playerY
+
+    if currentFloor != 2:
+        return ""
+
+    # Room 2A: top-left room
+    if -980 < playerX < -320 and 280 < playerY < 840:
+        return "Room 2A"
+
+    # Artifact Room: top-middle room
+    elif -320 < playerX < 320 and 280 < playerY < 840:
+        return "Artifact Room"
+
+    # Room 2C: top-right room
+    elif 320 < playerX < 980 and 280 < playerY < 840:
+        return "Room 2C"
+
+    return ""
+
+
+def getRequiredRoomForArtifact(item):
+    if item == "Candle":
+        return "Room 2A"
+
+    elif item == "Lemon":
+        return "Room 2A"
+
+    elif item == "Lighter":
+        return "Artifact Room"
+
+    elif item == "Rope":
+        return "Artifact Room"
+
+    elif item == "Doll":
+        return "Artifact Room"
+
+    elif item == "Wood":
+        return "Room 2C"
+
+    elif item == "Red Powder":
+        return "Room 2C"
+
+    return ""
+def checkWinCondition():
+    global gameWon
+
+    allPlaced = True
+
+    for item in ritualPlaced:
+        if ritualPlaced[item] == False:
+            allPlaced = False
+
+    if allPlaced:
+        gameWon = True
+
+def handleRitualNumberKey(key):
+    global selectedSlot, ritualPlaced
+
+    # number keys are for ritual only after level is selected
+    if not levelSelected:
+        return False
+
+    if key not in [b'1', b'2', b'3', b'4', b'5', b'6', b'7']:
+        return False
+
+    index = int(key.decode()) - 1
+    selectedSlot = index
+
+    item = hud_items[index]
+
+    currentRoom = getSecondFloorRitualRoom()
+
+    # Number keys only work in Room 2A, Artifact Room, and Room 2C
+    if currentRoom == "":
+        setRitualMessage("Use ritual keys only inside ritual rooms.")
+        return True
+
+    requiredRoom = getRequiredRoomForArtifact(item)
+
+    if currentRoom == requiredRoom:
+        if item in collection:
+            ritualPlaced[item] = True
+            setRitualMessage(item + " placed correctly.")
+            checkWinCondition()
+        else:
+            setRitualMessage("You have not collected " + item + " yet.")
+    else:
+        setRitualMessage("Wrong artifact for this room! Health -25")
+        takeDamage(25)
+
+    return True
+
+
 def keyboardListener(key, x, y):
     global playerX, playerY, playerAngle, gameOver, firstPersonMode, currentFloor, isLookBack, lookBackTimer, canPickGun, hasGun, bulletAvailable, gunSpawned,ghostVisible,ghostSpawned,ghostStartTime,level,levelSelected, reverse, reverseStartTime, reverseDuration, regenCount, playerInvisible, invisibleStartTime, invisibleDuration, cheatMode
 
+# Allow restart even after game over or win
+    if key == b'r':
+        resetGame()
+        glutPostRedisplay()
+        return
+
+# Stop all other buttons after game over or win
+    if gameOver or gameWon:
+        return
     if not gameOver:
-        if key == b'w':
+        if handleRitualNumberKey(key):
+            return
+        if key == b'w' and levelSelected==True:
             if reverse:
                 movePlayer(-20)
             else:
                 movePlayer(20)
-        if key == b's':
+        if key == b's' and levelSelected==True:
             if reverse:
                 movePlayer(20)
             else:
                 movePlayer(-20)
 
-        if key == b'a':
+        if key == b'a' and levelSelected==True:
             if reverse:
                 playerAngle -= 10
             else:
                 playerAngle += 10
-        if key == b'd':
+        if key == b'd' and levelSelected==True:
             if reverse:
                 playerAngle += 10
             else:
@@ -543,7 +714,8 @@ def keyboardListener(key, x, y):
 
 def mouseListener(button, state, x, y):
     global firstPersonMode, hasGun, bulletAvailable, bulletX, bulletY, bulletAngle, bulletActive,ghostX,ghostY
-
+    if gameOver or gameWon:
+        return
     if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
         if hasGun and bulletAvailable:
             angleRad = radians(playerAngle)
@@ -569,7 +741,15 @@ def resetGame():
     global ghostX, ghostY, ghostState, currentTarget
     global bulletActive, hasGun, bulletAvailable, gunSpawned
     global regenCount, playerInvisible, cheatMode
+    global ritualPlaced, ritualMessage, ritualMessageStart, selectedSlot
+    global gameWon
 
+    for item in ritualPlaced:
+        ritualPlaced[item] = False
+
+    ritualMessage = ""
+    ritualMessageStart = 0
+    selectedSlot = 0
     # Player reset
     playerX = 0
     playerY = 0
@@ -579,7 +759,7 @@ def resetGame():
     health = maxHealth
     gameOver = False
     currentFloor = 1
-
+    gameWon = False
     # Items
     collection.clear()
     candlePicked = False
@@ -611,36 +791,52 @@ def resetGame():
 def setupCamera():
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(fovY, 1.4, 0.1, 3000)
+
+    gluPerspective(fovY, SCREEN_W / SCREEN_H, 0.1, 3000)
+
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
-    if firstPersonMode:        
+    if firstPersonMode:
         finalAngle = playerAngle + lookBackAngleOffset
 
+    # POV camera placed near the player's mouth/face
+    # Slightly in front of the head so the black head does not block the view
+        camX = playerX + 32 * cos(radians(finalAngle))
+        camY = playerY + 32 * sin(radians(finalAngle))
+        camZ = 112
+
+    # Look forward, slightly downward so hands/gun are visible
+        lookX = playerX + 180 * cos(radians(finalAngle))
+        lookY = playerY + 180 * sin(radians(finalAngle))
+        lookZ = 60
+
         gluLookAt(
-            playerX + 20 * cos(radians(finalAngle)),
-            playerY + 20 * sin(radians(finalAngle)),
-            120,
-
-            playerX + 100 * cos(radians(finalAngle)),
-            playerY + 100 * sin(radians(finalAngle)),
-            120,
-
+            camX, camY, camZ,
+            lookX, lookY, lookZ,
             0, 0, 1
         )
+
     else:
-        camX = playerX - 120 * cos(radians(playerAngle))
-        camY = playerY - 120 * sin(radians(playerAngle))
+        camX = playerX - 180 * cos(radians(playerAngle))
+        camY = playerY - 180 * sin(radians(playerAngle))
 
         gluLookAt(
-            camX, camY,150,
-            playerX, playerY, 80,
+            camX, camY, 170,
+            playerX, playerY, 90,
             0, 0, 1
         )
 
-def idle():
-    global lookBackAngleOffset, isLookBack, bulletX, bulletY, bulletAngle, bulletActive, playerInvisible, invisibleStartTime
+
+def idle(): 
+    global lookBackAngleOffset, isLookBack
+    global bulletX, bulletY, bulletAngle, bulletActive
+    global playerInvisible, invisibleStartTime
+    global blink, blinkStart, health
+    global gameOver, gameWon
+    if gameOver or gameWon:
+        glutPostRedisplay()
+        return
     if not gameOver:
         turnSpeed = 0.5
         returnSpeed = 1
@@ -672,9 +868,19 @@ def idle():
 
 
     ghostMovement()
+    if abs(playerX - ghostX) < 40 and abs(playerY - ghostY) < 40:
+        if not cheatMode:
+            health -= 0.005
+            blink = True
+            blinkStart = time.time()
+
+            if health <= 0:
+                health = 0
+                gameOver = True 
     checkBulletHit()
     updateSafeRoom()
     glutPostRedisplay()
+
 
 #Bullet Collision Handle
 flag=True
@@ -1082,13 +1288,176 @@ def drawSecondFloor():
     # dark hallway (right)
     drawWall(100*arenaScale, -560*arenaScale, 490*arenaScale, -560*arenaScale)
     drawWall(490*arenaScale, -560*arenaScale, 490*arenaScale, -140*arenaScale)
-
+    drawSecondFloorRitualFrames()
 def drawBox(x, y, z, size, r, g, b):
     glPushMatrix()
     glTranslatef(x, y, z)
     glColor3f(r, g, b)
     glutSolidCube(size)
     glPopMatrix()
+
+
+def artifactColor(item, r, g, b):
+    if ritualPlaced[item]:
+        glColor3f(r, g, b)
+    else:
+        glColor3f(1, 1, 1)
+
+
+def drawArtifactInsideFrame(item):
+    # For NORTH wall, inside of arena is negative Y direction.
+    # This keeps the artifact visible without clearing depth.
+    front = -20
+
+    if item == "Candle":
+        artifactColor(item, 0.85, 0.72, 0.35)
+        glPushMatrix()
+        glTranslatef(0, front, -8)
+        glScalef(8, 6, 26)
+        glutSolidCube(1)
+        glPopMatrix()
+
+        artifactColor(item, 1.0, 0.35, 0.0)
+        glPushMatrix()
+        glTranslatef(0, front - 2, 10)
+        glScalef(4, 5, 10)
+        glutSolidCube(1)
+        glPopMatrix()
+
+    elif item == "Lemon":
+        artifactColor(item, 0.9, 0.85, 0.0)
+        glPushMatrix()
+        glTranslatef(0, front, 0)
+        glScalef(22, 6, 16)
+        glutSolidCube(1)
+        glPopMatrix()
+
+    elif item == "Lighter":
+        artifactColor(item, 0.55, 0.55, 0.55)
+        glPushMatrix()
+        glTranslatef(0, front, -4)
+        glScalef(12, 6, 22)
+        glutSolidCube(1)
+        glPopMatrix()
+
+        artifactColor(item, 0.9, 0.9, 0.9)
+        glPushMatrix()
+        glTranslatef(0, front - 2, 10)
+        glScalef(8, 5, 6)
+        glutSolidCube(1)
+        glPopMatrix()
+
+    elif item == "Rope":
+        artifactColor(item, 0.45, 0.25, 0.08)
+
+        glPushMatrix()
+        glTranslatef(0, front, -6)
+        glScalef(24, 6, 6)
+        glutSolidCube(1)
+        glPopMatrix()
+
+        glPushMatrix()
+        glTranslatef(0, front, 6)
+        glScalef(18, 6, 6)
+        glutSolidCube(1)
+        glPopMatrix()
+
+    elif item == "Doll":
+        artifactColor(item, 0.82, 0.66, 0.55)
+        glPushMatrix()
+        glTranslatef(0, front, 12)
+        glScalef(10, 6, 10)
+        glutSolidCube(1)
+        glPopMatrix()
+
+        artifactColor(item, 0.55, 0.20, 0.65)
+        glPushMatrix()
+        glTranslatef(0, front, -2)
+        glScalef(14, 6, 16)
+        glutSolidCube(1)
+        glPopMatrix()
+
+        artifactColor(item, 0.82, 0.66, 0.55)
+
+        glPushMatrix()
+        glTranslatef(-3, front, -16)
+        glScalef(3, 6, 8)
+        glutSolidCube(1)
+        glPopMatrix()
+
+        glPushMatrix()
+        glTranslatef(3, front, -16)
+        glScalef(3, 6, 8)
+        glutSolidCube(1)
+        glPopMatrix()
+
+    elif item == "Wood":
+        artifactColor(item, 0.45, 0.23, 0.05)
+
+        glPushMatrix()
+        glTranslatef(0, front, -6)
+        glScalef(24, 6, 8)
+        glutSolidCube(1)
+        glPopMatrix()
+
+        glPushMatrix()
+        glTranslatef(0, front, 6)
+        glScalef(20, 6, 7)
+        glutSolidCube(1)
+        glPopMatrix()
+
+    elif item == "Red Powder":
+        artifactColor(item, 0.75, 0.0, 0.0)
+        glPushMatrix()
+        glTranslatef(0, front, 0)
+        glScalef(16, 6, 18)
+        glutSolidCube(1)
+        glPopMatrix()
+
+def drawRitualFrame(cx, cy, cz, side, item):
+    glPushMatrix()
+    glTranslatef(cx, cy, cz)
+
+    # All frames are on the NORTH arena boundary wall.
+    # Inside of arena is negative Y.
+
+    # outer wooden frame
+    glColor3f(0.35, 0.20, 0.08)
+    glPushMatrix()
+    glScalef(70, 10, 90)
+    glutSolidCube(1)
+    glPopMatrix()
+
+    # inner panel
+    glColor3f(0.92, 0.90, 0.80)
+    glPushMatrix()
+    glTranslatef(0, -8, 0)
+    glScalef(52, 4, 70)
+    glutSolidCube(1)
+    glPopMatrix()
+
+    # artifact appears in front of the panel
+    drawArtifactInsideFrame(item)
+
+    glPopMatrix()
+
+def drawSecondFloorRitualFrames():
+    frame_z = 165
+
+    # Put all 7 frames on ONE wall:
+    # the NORTH boundary wall of the arena.
+    # Top arena boundary is y = 420 * arenaScale = 840.
+    # We place frames slightly inside the arena at y = 812.
+    north_y = 420 * arenaScale - 28
+
+    items = ["Candle", "Lemon", "Lighter", "Rope", "Doll", "Wood", "Red Powder"]
+
+    # Spread 7 frames across the north boundary wall.
+    # Arena x-range is about -980 to +980, so these are safely inside.
+    x_positions = [-720, -480, -240, 0, 240, 480, 720]
+
+    for i in range(len(items)):
+        drawRitualFrame(x_positions[i], north_y, frame_z, "north", items[i])
 
 def drawAllRoomBoxes():
     if currentFloor==1:
@@ -1711,16 +2080,43 @@ def levelSelection():
         elif level=="Medium":
             ghostSpeed=0.5
         else:
-            ghostSpeed=1                
+            ghostSpeed=1
+
+blink = False
+blinkStart = 0
+blinkDuration=10
+def drawBlink():
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    gluOrtho2D(0,1000, 0,800)
+
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    glColor3f(1, 0, 0)
+
+    glBegin(GL_QUADS)
+    glVertex2f(0, 0)
+    glVertex2f(1000, 0)
+    glVertex2f(1000, 800)
+    glVertex2f(0, 800)
+    glEnd()
+
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)                           
 
 def showScreen():
-    global currentFloor,ghostStartTime,ghostX,ghostY, ghostFrp, ghostState, levelSelected, ghostFreezeStart, ghostFrozen, ghostFreezeDuration, playerInvisible, invisibleStartTime, invisibleDuration, regenCount
+    global currentFloor,ghostStartTime,ghostX,ghostY, ghostFrp, ghostState, levelSelected, ghostFreezeStart, ghostFrozen, ghostFreezeDuration, playerInvisible, invisibleStartTime, invisibleDuration, regenCount,blink
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glEnable(GL_DEPTH_TEST)
     glLoadIdentity()
-    glViewport(0, 0, 1400, 1000)
+    glViewport(0, 0, SCREEN_W, SCREEN_H)
     setupCamera()
-
+    
     if currentFloor == 1:
         drawSafeRoomFloor()
         drawRoomFloors()
@@ -1741,6 +2137,8 @@ def showScreen():
         drawCeiling()
 
     drawAllRoomBoxes()
+
+
     drawPlayer()
 
     if currentFloor==1:
@@ -1755,8 +2153,8 @@ def showScreen():
     correctBoxDetection()
     levelSelection()
     checkReverseBox()
-    glClear(GL_DEPTH_BUFFER_BIT)
-    drawPlayerHUD()
+    drawRitualMessage()
+
 
     if cheatMode:
         draw_text(10, 610, "CHEAT MODE: GOD MODE ACTIVE")
@@ -1777,13 +2175,24 @@ def showScreen():
             remaining = 0
         draw_text(10, 630, f"INVISIBLE: {remaining}s")
 
+    #Blink condition
+    if blink:
+        currentTime = time.time()
+
+        if currentTime - blinkStart > blinkDuration:
+            blink = False
+        else:
+            if int(currentTime * 10) % 2 == 0:
+                drawBlink()
+    glClear(GL_DEPTH_BUFFER_BIT)
+    drawPlayerHUD()
     glutSwapBuffers()
 
 def main():
     global ghostStartTime
     glutInit()
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
-    glutInitWindowSize(1400, 1000)
+    glutInitWindowSize(SCREEN_W, SCREEN_H)
     glutInitWindowPosition(50,50)
     wind = glutCreateWindow(b"Kalo Ritual")
 
