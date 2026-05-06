@@ -2,7 +2,7 @@
 
 Kalo Rituals is a CSE423 computer graphics project built with OpenGL. The game is a horror-themed ritual survival experience that focuses on real-time rendering, camera control, and interactive gameplay mechanics.
 
-## Screenshots
+## Map
 
 ![Map 1 Floor](Map%201%20Floor.jpg)
 ![Map 2 Floor](Map%202%20Floor.jpg)
@@ -34,8 +34,6 @@ Kalo Rituals is a CSE423 computer graphics project built with OpenGL. The game i
 ```
 .
 ├─ game.py
-├─ Group10_Section14_Game.py
-├─ 3D_OpenGL_Intro.py
 ├─ OpenGL/
 │  ├─ DLLS/
 │  └─ ...
