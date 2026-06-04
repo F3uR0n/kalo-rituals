@@ -1,3 +1,24 @@
 OpenGL/
 Group10_Section14_Game.py
 3D_OpenGL_Intro.py
+
+# PyInstaller
+build/
+dist/
+
+# Spec file generated automatically
+game.spec
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db

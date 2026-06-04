@@ -1,0 +1,12 @@
+# Kalo Rituals - Python dependencies
+# PyOpenGL is VENDORED locally in OpenGL/ directory - no pip install needed for runtime
+# Install these only in the build environment
+
+# Build tool
+pyinstaller>=6.0
+
+# PyOpenGL - only needed if NOT using the vendored local OpenGL/ package
+# PyOpenGL==3.1.7
+
+# No other third-party dependencies.
+# game.py uses only: math, random, time (stdlib) + OpenGL (vendored)
