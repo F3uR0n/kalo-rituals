@@ -1,11 +1,30 @@
 # Kalo Rituals
 
+![Python](https://img.shields.io/badge/Python-3.x-blue)
+![OpenGL](https://img.shields.io/badge/OpenGL-Graphics-green)
+![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
+![Status](https://img.shields.io/badge/Status-Completed-success)
+
 A horror-themed ritual survival game built with Python and OpenGL for CSE423 (Computer Graphics). The player navigates a two-floor arena, collects ritual artifacts, and survives against a ghost enemy while managing limited survival resources.
 
 ## Map
 
 ![Map 1 Floor](Map%201%20Floor.jpg)
 ![Map 2 Floor](Map%202%20Floor.jpg)
+
+## Tech Stack
+
+| Component | Technology |
+|---|---|
+| Language | Python 3.x |
+| Graphics API | OpenGL (via PyOpenGL) |
+| Windowing / Input | GLUT (FreeGLUT) |
+| HUD | Orthographic overlay via `gluOrtho2D` |
+| Packaging | PyInstaller (one-dir Windows build) |
+
+## Download
+
+Download the latest Windows build from the [Releases](../../releases) section.
 
 ## Gameplay Features
 
